@@ -44,6 +44,7 @@ This method performs direct feature-wise comparison:
 - matplotlib
 - joblib
 - tqdm
+- seaborn
 
 ### Install from local source
 
@@ -51,16 +52,34 @@ This method performs direct feature-wise comparison:
 pip install .
 ```
 
-### Install directly from GitHub
+or with [uv](https://docs.astral.sh/uv/)
 
 ```bash
-pip install git+https://github.com/<USER>/<REPO>.git
+uv sync
+```
+
+### Install directly from GitHub inside your project
+
+```bash
+pip install git+https://github.com/Ayumu722/pca-based-feature-extraction
+```
+
+or with [uv](https://docs.astral.sh/uv/)
+
+```bash
+uv add git+https://github.com/Ayumu722/pca-based-feature-extraction
 ```
 
 ### Install in development mode
 
 ```bash
 pip install -e .
+```
+
+or with [uv](https://docs.astral.sh/uv/)
+
+```bash
+uv pip install -e .
 ```
 
 ### Run examples
@@ -298,6 +317,8 @@ For each selected principal component, connections (features) are selected based
 ```
 .
 ├── pyproject.toml          # Package configuration
+├── .python-version         # The desired python version
+├── uv.lock                 # The uv dependencies file
 ├── src/
 │   └── pcafeat/
 │       ├── __init__.py              # Package entry point
@@ -378,4 +399,3 @@ For questions or issues, please contact [your contact information].
 - Automatic statistical test selection
 - Multiple comparison correction methods
 - Plotting functionality
-
