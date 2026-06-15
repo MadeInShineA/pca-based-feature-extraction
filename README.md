@@ -45,10 +45,16 @@ This method performs direct feature-wise comparison:
 - joblib
 - tqdm
 
-### Install
+### Install from local source
 
 ```bash
 pip install .
+```
+
+### Install directly from GitHub
+
+```bash
+pip install git+https://github.com/<USER>/<REPO>.git
 ```
 
 ### Install in development mode
