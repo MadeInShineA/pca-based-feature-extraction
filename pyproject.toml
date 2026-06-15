@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "pcafeat"
+dynamic = ["version"]
+description = "PCA-based and t-test-based feature selection for high-dimensional neuroimaging data"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Ayumu Yamashita"},
+]
+keywords = ["pca", "feature-selection", "neuroimaging", "statistics", "machine-learning"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "pandas",
+    "numpy",
+    "scikit-learn",
+    "scipy",
+    "statsmodels",
+    "matplotlib",
+    "joblib",
+    "tqdm",
+    "seaborn",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "pcafeat.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
