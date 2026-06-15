@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Apr 24 09:27:26 2023
+
+@author: ayumu
+"""
+
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -25,18 +33,28 @@ def compute_statistics_anova(pca_i, df_score_tmp, target_col):
 
 
 def pca_extract(df_score, target, method_pick_pca, fig_plot, fig_dir, bar_color='blue'):
+    """
+    df_score: PCAスコアのみを含むDataFrame（NaNは既に除外されている想定）
+    target: ターゲット変数のSeries（df_score[target]に相当、NaNは既に除外されている想定）
+    bar_color: プロットのバーの色（デフォルト: 'blue'）
+    """
+    # targetをSeriesに変換（まだSeriesでない場合）
     if not isinstance(target, pd.Series):
         target = pd.Series(target)
 
+    # df_scoreとtargetのインデックスを同期（既にNaNは除外されている想定）
     df_score_tmp = df_score.reset_index(drop=True)
     target_data = target.reset_index(drop=True)
 
+    # データ型の判定
     is_numeric = pd.api.types.is_numeric_dtype(target_data)
     unique_vals = target_data.nunique()
     unique_list = sorted(target_data.unique())
 
+    # target_nameの取得（プロットのタイトルやファイル名に使用）
     target_name = getattr(target, 'name', 'unknown')
 
+    # binary（2値）の場合: ttest_ind
     if is_numeric and unique_vals == 2:
         val1, val2 = unique_list
         mask1 = target_data == val1
@@ -45,16 +63,19 @@ def pca_extract(df_score, target, method_pick_pca, fig_plot, fig_dir, bar_color=
             df_score_tmp[mask1],
             df_score_tmp[mask2]
         )
+    # 連続値の場合: pearsonr相関
     elif is_numeric and unique_vals > 2:
         results = Parallel(n_jobs=-1)(
             delayed(stats.pearsonr)(df_score_tmp[pca_i], target_data)
             for pca_i in df_score_tmp.columns
         )
         statistics, p = zip(*results)
+    # カテゴリカルの場合: ANOVA
     else:
         df_score_anova = df_score_tmp.copy()
         target_col_name = target_name if target_name != 'unknown' else 'target'
         df_score_anova[target_col_name] = target_data
+        # PCAカラムのみを処理（target_col_nameは除外）
         pca_columns = [col for col in df_score_anova.columns if col != target_col_name]
         results = Parallel(n_jobs=-1)(
             delayed(compute_statistics_anova)(pca_i, df_score_anova, target_col_name)
