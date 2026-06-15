@@ -1,5 +1,7 @@
 # Feature Selection Pipeline for Neuroimaging Data
 
+> Author: Ayumu
+
 A Python package for identifying features (connections) associated with a target variable using two complementary approaches:
 1. **PCA-based method**: Uses Principal Component Analysis for dimensionality reduction
 2. **T-test-based method**: Uses direct independent t-test for binary group comparisons
@@ -44,11 +46,49 @@ This method performs direct feature-wise comparison:
 - matplotlib
 - joblib
 - tqdm
+- seaborn
 
-### Install dependencies
+### Install from local source
 
 ```bash
-pip install pandas numpy scikit-learn scipy statsmodels matplotlib joblib tqdm
+pip install .
+```
+
+or with [uv](https://docs.astral.sh/uv/)
+
+```bash
+uv sync
+```
+
+### Install directly from GitHub inside your project
+
+```bash
+pip install git+https://github.com/Ayumu722/pca-based-feature-extraction
+```
+
+or with [uv](https://docs.astral.sh/uv/)
+
+```bash
+uv add git+https://github.com/Ayumu722/pca-based-feature-extraction
+```
+
+### Install in development mode
+
+```bash
+pip install -e .
+```
+
+or with [uv](https://docs.astral.sh/uv/)
+
+```bash
+uv pip install -e .
+```
+
+### Run examples
+
+```bash
+python examples/run_pca.py
+python examples/run_ttest.py
 ```
 
 ## Quick Start
@@ -58,7 +98,7 @@ pip install pandas numpy scikit-learn scipy statsmodels matplotlib joblib tqdm
 ```python
 import pandas as pd
 import numpy as np
-from select_pca import select_pca_features
+from pcafeat import select_pca_features
 
 # Prepare your data
 # df_X_train: Feature matrix (n_samples × n_features)
@@ -92,7 +132,7 @@ print(f"Associated with PCs: {np.unique(cons_pc)}")
 ```python
 import pandas as pd
 import numpy as np
-from select_ttest import select_ttest_features
+from pcafeat import select_ttest_features
 
 # Prepare your data
 # df_X_train: Feature matrix (n_samples × n_features)
@@ -278,10 +318,20 @@ For each selected principal component, connections (features) are selected based
 
 ```
 .
-├── select_pca.py          # Main module with select_pca_features function
-├── select_ttest.py        # Main module with select_ttest_features function
-├── pca_feature_select.py  # Core functions (pca_extract, con_extract)
-└── README.md             # This file
+├── pyproject.toml          # Package configuration
+├── .python-version         # The desired python version
+├── uv.lock                 # The uv dependencies file
+├── src/
+│   └── pcafeat/
+│       ├── __init__.py              # Package entry point
+│       ├── select_pca.py            # PCA-based feature selection
+│       ├── select_ttest.py          # T-test-based feature selection
+│       └── pca_feature_select.py    # Core functions (pca_extract, con_extract)
+├── examples/
+│   ├── run_pca.py                  # PCA method example
+│   └── run_ttest.py                # T-test method example
+├── tests/                          # Test directory
+└── README.md
 ```
 
 ## Output
@@ -351,4 +401,3 @@ For questions or issues, please contact [your contact information].
 - Automatic statistical test selection
 - Multiple comparison correction methods
 - Plotting functionality
-
