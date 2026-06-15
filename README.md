@@ -1,5 +1,7 @@
 # Feature Selection Pipeline for Neuroimaging Data
 
+> Author: Ayumu
+
 A Python package for identifying features (connections) associated with a target variable using two complementary approaches:
 1. **PCA-based method**: Uses Principal Component Analysis for dimensionality reduction
 2. **T-test-based method**: Uses direct independent t-test for binary group comparisons
