@@ -99,7 +99,7 @@ def pca_extract(df_score, target, method_pick_pca, fig_plot, fig_dir, bar_color=
         plt.figure()
         plt.bar(range(len(statistics[:show_num])), np.abs(statistics[:show_num]), color=bar_color)
         plt.xticks(range(len(statistics[:show_num])), range(1, len(statistics[:show_num]) + 1))
-        plt.title(f"Top {show_num} Principal Components: {stat_type} for '{target_name}'", fontsize=14)
+        plt.title(f"Top {show_num} Principal Components:\n {stat_type} for '{target_name}'", fontsize=14)
         plt.xlabel("Principal Component", fontsize=12)
         plt.ylabel(y_label, fontsize=12)
         plt.savefig(fig_dir + target_name + '.png')
