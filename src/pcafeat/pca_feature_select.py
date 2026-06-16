@@ -54,8 +54,13 @@ def pca_extract(df_score, target, method_pick_pca, fig_plot, fig_dir, bar_color=
     # target_nameの取得（プロットのタイトルやファイル名に使用）
     target_name = getattr(target, 'name', 'unknown')
 
+    stat_type = None
+    y_label = None
     # binary（2値）の場合: ttest_ind
     if is_numeric and unique_vals == 2:
+        stat_type = "T-value (t-test)"
+        y_label = "Absolute T-value"
+
         val1, val2 = unique_list
         mask1 = target_data == val1
         mask2 = target_data == val2
@@ -65,6 +70,9 @@ def pca_extract(df_score, target, method_pick_pca, fig_plot, fig_dir, bar_color=
         )
     # 連続値の場合: pearsonr相関
     elif is_numeric and unique_vals > 2:
+        stat_type = "r-value (Pearson correlation)"
+        y_label = "Absolute r-value"
+
         results = Parallel(n_jobs=-1)(
             delayed(stats.pearsonr)(df_score_tmp[pca_i], target_data)
             for pca_i in df_score_tmp.columns
@@ -72,6 +80,9 @@ def pca_extract(df_score, target, method_pick_pca, fig_plot, fig_dir, bar_color=
         statistics, p = zip(*results)
     # カテゴリカルの場合: ANOVA
     else:
+        stat_type = "F-value (ANOVA)"
+        y_label = "Absolute F-value"
+
         df_score_anova = df_score_tmp.copy()
         target_col_name = target_name if target_name != 'unknown' else 'target'
         df_score_anova[target_col_name] = target_data
@@ -88,7 +99,9 @@ def pca_extract(df_score, target, method_pick_pca, fig_plot, fig_dir, bar_color=
         plt.figure()
         plt.bar(range(len(statistics[:show_num])), np.abs(statistics[:show_num]), color=bar_color)
         plt.xticks(range(len(statistics[:show_num])), range(1, len(statistics[:show_num]) + 1))
-        plt.title(target_name)
+        plt.title(f"Top {show_num} Principal Components: {stat_type} for '{target_name}'", fontsize=14)
+        plt.xlabel("Principal Component", fontsize=12)
+        plt.ylabel(y_label, fontsize=12)
         plt.savefig(fig_dir + target_name + '.png')
         plt.savefig(fig_dir + target_name + '.svg')
 
