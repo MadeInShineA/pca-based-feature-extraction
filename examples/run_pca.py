@@ -24,7 +24,7 @@ output_dir = './output/'
 os.makedirs(output_dir, exist_ok=True)
 
 print("Running PCA-based feature selection...")
-cons, cons_pc = select_pca_features(
+cons, cons_pc, df_score = select_pca_features(
     df_X_train_clean,
     target_clean,
     method_pick_pca='fdr_bh',

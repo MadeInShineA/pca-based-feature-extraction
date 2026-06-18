@@ -140,7 +140,7 @@ def select_pca_features(df_X_train, target, method_pick_pca='fdr_bh',
     # Extract connections (features) associated with the selected components
     cons, cons_pc = con_extract(coeff_train, select_pc, method_pick_con)
 
-    return cons, cons_pc
+    return cons, cons_pc, df_score
 
 
 if __name__ == "__main__":
