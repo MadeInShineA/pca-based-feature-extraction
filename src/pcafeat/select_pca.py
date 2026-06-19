@@ -21,7 +21,7 @@ from pcafeat.pca_feature_select import pca_extract, con_extract
 import os
 
 
-def select_pca_features(df_X_train, target, method_pick_pca='fdr_bh',
+def select_pca_features(df_X_train, target, method_pick_pca='fdr_bh', pca_extract_multipletests_alpha = 0.05,
                         method_pick_con='fdr_bh', fig_plot=False,
                         fig_dir=None, bar_color='blue'):
     """
@@ -132,6 +132,7 @@ def select_pca_features(df_X_train, target, method_pick_pca='fdr_bh',
         df_score,
         target,
         method_pick_pca,
+        multipletests_alpha=pca_extract_multipletests_alpha,
         fig_plot=fig_plot,
         fig_dir=fig_dir,
         bar_color=bar_color

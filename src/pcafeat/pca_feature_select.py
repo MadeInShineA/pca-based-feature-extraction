@@ -32,7 +32,7 @@ def compute_statistics_anova(pca_i, df_score_tmp, target_col):
     return tmp_stat, p_value
 
 
-def pca_extract(df_score, target, method_pick_pca, fig_plot, fig_dir, bar_color='blue'):
+def pca_extract(df_score, target, method_pick_pca,  fig_plot, fig_dir, multipletests_alpha=0.05, bar_color='blue'):
     """
     df_score: PCAスコアのみを含むDataFrame（NaNは既に除外されている想定）
     target: ターゲット変数のSeries（df_score[target]に相当、NaNは既に除外されている想定）
@@ -92,7 +92,7 @@ def pca_extract(df_score, target, method_pick_pca, fig_plot, fig_dir, bar_color=
         plt.savefig(fig_dir + target_name + '.png')
         plt.savefig(fig_dir + target_name + '.svg')
 
-    h = smt.multipletests(p, method=method_pick_pca)[0]
+    h = smt.multipletests(p, alpha=multipletests_alpha, method=method_pick_pca)[0]
     ind = np.where(h)[0]
     print(f'{target_name} related pcs are {ind}')
     return ind, statistics
