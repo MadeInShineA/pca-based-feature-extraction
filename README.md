@@ -381,11 +381,11 @@ If you use this pipeline in your research, please cite the original paper (to be
 
 ## License
 
-[Specify your license here]
+Apache 2.0 license
 
 ## Contact
 
-For questions or issues, please contact [your contact information].
+For questions or issues, please contact ayumu@atr.jp.
 
 ## Changelog
 
