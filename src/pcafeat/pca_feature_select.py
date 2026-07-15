@@ -180,7 +180,8 @@ def check_p_value(coeff, ind, serch_num):
 def select_optimal_pcs(
     target_pcs_lists,
     noise_pcs_lists,
-    n_pcs=3
+    n_pcs=3,
+    primary_target_pcs_lists=None
 ):
     """
     Select PCs with high target scores and low noise scores.
@@ -192,13 +193,18 @@ def select_optimal_pcs(
     Parameters
     ----------
     target_pcs_lists : list of list of tuple
-        List of (pc_index, score) lists for each target metric, e.g.
+        List of (pc_index, score) lists for each target / supportive metric, e.g.
         [[(1, 4.5), (930, 3.2)], [(1, 3.8), (40, 2.9)]].
     noise_pcs_lists : list of list of tuple
         List of (pc_index, score) lists for each noise/confound metric, e.g.
         [[(2, 3.5), (4, 3.0)], [(10, 2.1), (35, 1.8)]].
     n_pcs : int, default=3
         Number of PCs to return.
+    primary_target_pcs_lists : list of list of tuple or None, default=None
+        If provided, selection is restricted to PCs that appear in these lists.
+        These lists still contribute to the target score. Use this when you have
+        a main target (e.g., diagnosis) and want the final PCs to be chosen from
+        its top PCs, while supportive metrics (e.g., BDI) only modify the score.
 
     Returns
     -------
@@ -222,18 +228,32 @@ def select_optimal_pcs(
         for pc, _ in pc_list:
             all_pcs.add(pc)
 
+    # Determine candidate PCs: restrict to primary targets if provided,
+    # otherwise allow any target PC.
+    if primary_target_pcs_lists is not None and primary_target_pcs_lists:
+        candidate_pcs_set = set()
+        for pc_list in primary_target_pcs_lists:
+            for pc, _ in pc_list:
+                candidate_pcs_set.add(pc)
+        all_pcs.update(candidate_pcs_set)
+    else:
+        candidate_pcs_set = all_pcs.copy()
+
     if not all_pcs:
         return np.array([], dtype=int), {
             'final_score': np.array([]),
             'target_score': np.array([]),
             'noise_score': np.array([]),
+            'primary_target_pcs_lists': primary_target_pcs_lists,
             'target_pcs_lists': target_pcs_lists,
             'noise_pcs_lists': noise_pcs_lists,
         }
 
     n_pcs_total = max(all_pcs) + 1
 
-    # Sum absolute scores for each PC
+    # Sum absolute scores for each PC.
+    # target_pcs_lists contains all target metrics (primary + supportive).
+    # primary_target_pcs_lists is only used for restricting the candidate set.
     target_score = np.zeros(n_pcs_total)
     for pc_list in target_pcs_lists:
         for pc, score in pc_list:
@@ -248,7 +268,7 @@ def select_optimal_pcs(
     epsilon = 1e-10
     final_score = target_score / (noise_score + epsilon)
 
-    candidate_pcs = np.asarray(sorted(all_pcs))
+    candidate_pcs = np.asarray(sorted(candidate_pcs_set))
     candidate_final_score = final_score[candidate_pcs]
     ranked_indices = np.argsort(candidate_final_score)[::-1][:n_pcs]
     selected_pcs = candidate_pcs[ranked_indices]
@@ -257,6 +277,7 @@ def select_optimal_pcs(
         'final_score': final_score,
         'target_score': target_score,
         'noise_score': noise_score,
+        'primary_target_pcs_lists': primary_target_pcs_lists,
         'target_pcs_lists': target_pcs_lists,
         'noise_pcs_lists': noise_pcs_lists,
     }

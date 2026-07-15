@@ -133,3 +133,32 @@ def test_select_optimal_pcs_negative_scores_use_absolute():
     np.testing.assert_array_equal(
         info['noise_score'], np.array([0.0, 2.0])
     )
+
+
+def test_select_optimal_pcs_primary_targets_restrict_candidates():
+    """primary_target_pcs_lists restricts selection to primary target PCs."""
+    # target_pcs_lists includes both primary and supportive metrics.
+    # primary_target_pcs_lists restricts the candidate set.
+    target_pcs_lists = [
+        [(1, 3.0), (2, 2.0)],  # primary metric
+        [(5, 10.0)],           # supportive metric (PC 5 is strong but not primary)
+    ]
+    primary_target_pcs_lists = [
+        [(1, 3.0), (2, 2.0)],  # primary metric
+    ]
+    noise_pcs_lists = [
+        [(2, 5.0)],  # PC2 has high noise
+    ]
+
+    selected, info = select_optimal_pcs(
+        target_pcs_lists,
+        noise_pcs_lists,
+        n_pcs=1,
+        primary_target_pcs_lists=primary_target_pcs_lists,
+    )
+
+    # Candidate set is {1, 2}. PC5 is ignored even though it has the highest score.
+    # PC1: target=3, noise=0 -> best
+    # PC2: target=2, noise=5 -> worse
+    assert selected[0] == 1
+    assert 5 not in selected
