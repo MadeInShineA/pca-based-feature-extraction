@@ -178,115 +178,86 @@ def check_p_value(coeff, ind, serch_num):
 
 
 def select_optimal_pcs(
-    target_stats,
-    noise_stats=None,
-    n_pcs=3,
-    target_mode='sum',
-    noise_mode='combined',
-    noise_max_weight=0.7,
-    noise_sum_weight=0.3,
-    candidate_pcs=None
+    target_pcs_lists,
+    noise_pcs_lists,
+    n_pcs=3
 ):
     """
-    Select PCs that are strong across target metrics and weak across noise metrics.
+    Select PCs with high target scores and low noise scores.
+
+    Each input list contains (pc_index, score) tuples for one metric.
+    Target and noise scores for each PC are the sum of absolute scores across
+    the corresponding lists. The final score is target_score / noise_score.
 
     Parameters
     ----------
-    target_stats : dict
-        Dictionary mapping target names to arrays of statistics, e.g.
-        {'diagnosis': stats_array, 'bdi': stats_array}.
-    noise_stats : dict or None, default=None
-        Dictionary mapping noise/confound names to arrays of statistics, e.g.
-        {'motion': stats_array, 'age': stats_array}.
+    target_pcs_lists : list of list of tuple
+        List of (pc_index, score) lists for each target metric, e.g.
+        [[(1, 4.5), (930, 3.2)], [(1, 3.8), (40, 2.9)]].
+    noise_pcs_lists : list of list of tuple
+        List of (pc_index, score) lists for each noise/confound metric, e.g.
+        [[(2, 3.5), (4, 3.0)], [(10, 2.1), (35, 1.8)]].
     n_pcs : int, default=3
         Number of PCs to return.
-    target_mode : {'sum', 'min', 'max', 'product'}, default='sum'
-        How to combine target statistics:
-        - 'sum': total absolute target signal
-        - 'min': weakest target signal (requires all targets to be strong)
-        - 'max': strongest target signal
-        - 'product': product of absolute target signals
-    noise_mode : {'max', 'sum', 'combined'}, default='combined'
-        How to combine noise statistics:
-        - 'max': penalize single strongest confound
-        - 'sum': penalize total confound burden
-        - 'combined': weighted combination of max and sum
-    noise_max_weight : float, default=0.7
-        Weight for the max-noise term when noise_mode='combined'.
-    noise_sum_weight : float, default=0.3
-        Weight for the sum-noise term when noise_mode='combined'.
-    candidate_pcs : array-like or None, default=None
-        If provided, restrict selection to these PC indices. Target and noise
-        scores are still computed over all PCs, but only candidate_pcs are
-        eligible to be returned. Useful when you want to select the best PC
-        among a pre-selected set (e.g., the top target-related PCs).
 
     Returns
     -------
     selected_pcs : numpy.ndarray
         Indices of selected PCs, sorted by final score (best first).
     info : dict
-        Dictionary containing scores, weights, and raw statistics.
+        Dictionary containing scores and the input lists.
     """
-    if not target_stats:
-        raise ValueError("target_stats cannot be empty")
+    if not target_pcs_lists:
+        raise ValueError("target_pcs_lists cannot be empty")
 
-    # Target scores
-    target_matrix = np.vstack([
-        np.abs(np.asarray(s)) for s in target_stats.values()
-    ])
-    if target_mode == 'sum':
-        target_score = target_matrix.sum(axis=0)
-    elif target_mode == 'min':
-        target_score = target_matrix.min(axis=0)
-    elif target_mode == 'max':
-        target_score = target_matrix.max(axis=0)
-    elif target_mode == 'product':
-        target_score = target_matrix.prod(axis=0)
-    else:
-        raise ValueError(f"Unknown target_mode: {target_mode}")
+    if not noise_pcs_lists:
+        raise ValueError("noise_pcs_lists cannot be empty")
 
-    # Noise scores
-    if noise_stats:
-        noise_matrix = np.vstack([
-            np.abs(np.asarray(s)) for s in noise_stats.values()
-        ])
-        max_noise = noise_matrix.max(axis=0)
-        sum_noise = noise_matrix.sum(axis=0)
-        if noise_mode == 'max':
-            noise_score = max_noise
-        elif noise_mode == 'sum':
-            noise_score = sum_noise
-        elif noise_mode == 'combined':
-            noise_score = (noise_max_weight * max_noise
-                           + noise_sum_weight * sum_noise)
-        else:
-            raise ValueError(f"Unknown noise_mode: {noise_mode}")
-    else:
-        noise_score = np.zeros_like(target_score)
+    # Collect all PCs that appear in any list
+    all_pcs = set()
+    for pc_list in target_pcs_lists:
+        for pc, _ in pc_list:
+            all_pcs.add(pc)
+    for pc_list in noise_pcs_lists:
+        for pc, _ in pc_list:
+            all_pcs.add(pc)
+
+    if not all_pcs:
+        return np.array([], dtype=int), {
+            'final_score': np.array([]),
+            'target_score': np.array([]),
+            'noise_score': np.array([]),
+            'target_pcs_lists': target_pcs_lists,
+            'noise_pcs_lists': noise_pcs_lists,
+        }
+
+    n_pcs_total = max(all_pcs) + 1
+
+    # Sum absolute scores for each PC
+    target_score = np.zeros(n_pcs_total)
+    for pc_list in target_pcs_lists:
+        for pc, score in pc_list:
+            target_score[pc] += abs(score)
+
+    noise_score = np.zeros(n_pcs_total)
+    for pc_list in noise_pcs_lists:
+        for pc, score in pc_list:
+            noise_score[pc] += abs(score)
 
     # Final score: high target, low noise
     epsilon = 1e-10
     final_score = target_score / (noise_score + epsilon)
 
-    if candidate_pcs is not None:
-        candidate_pcs = np.asarray(candidate_pcs)
-        candidate_final_score = final_score[candidate_pcs]
-        ranked_indices = np.argsort(candidate_final_score)[::-1][:n_pcs]
-        selected_pcs = candidate_pcs[ranked_indices]
-    else:
-        selected_pcs = np.argsort(final_score)[::-1][:n_pcs]
+    candidate_pcs = np.asarray(sorted(all_pcs))
+    candidate_final_score = final_score[candidate_pcs]
+    ranked_indices = np.argsort(candidate_final_score)[::-1][:n_pcs]
+    selected_pcs = candidate_pcs[ranked_indices]
 
     info = {
-        'target_mode': target_mode,
-        'noise_mode': noise_mode,
-        'noise_max_weight': noise_max_weight,
-        'noise_sum_weight': noise_sum_weight,
-        'candidate_pcs': candidate_pcs,
         'final_score': final_score,
         'target_score': target_score,
         'noise_score': noise_score,
-        'target_stats': target_stats,
-        'noise_stats': noise_stats,
+        'target_pcs_lists': target_pcs_lists,
+        'noise_pcs_lists': noise_pcs_lists,
     }
     return selected_pcs, info
