@@ -184,7 +184,8 @@ def select_optimal_pcs(
     target_mode='sum',
     noise_mode='combined',
     noise_max_weight=0.7,
-    noise_sum_weight=0.3
+    noise_sum_weight=0.3,
+    candidate_pcs=None
 ):
     """
     Select PCs that are strong across target metrics and weak across noise metrics.
@@ -214,6 +215,11 @@ def select_optimal_pcs(
         Weight for the max-noise term when noise_mode='combined'.
     noise_sum_weight : float, default=0.3
         Weight for the sum-noise term when noise_mode='combined'.
+    candidate_pcs : array-like or None, default=None
+        If provided, restrict selection to these PC indices. Target and noise
+        scores are still computed over all PCs, but only candidate_pcs are
+        eligible to be returned. Useful when you want to select the best PC
+        among a pre-selected set (e.g., the top target-related PCs).
 
     Returns
     -------
@@ -262,13 +268,21 @@ def select_optimal_pcs(
     # Final score: high target, low noise
     epsilon = 1e-10
     final_score = target_score / (noise_score + epsilon)
-    selected_pcs = np.argsort(final_score)[::-1][:n_pcs]
+
+    if candidate_pcs is not None:
+        candidate_pcs = np.asarray(candidate_pcs)
+        candidate_final_score = final_score[candidate_pcs]
+        ranked_indices = np.argsort(candidate_final_score)[::-1][:n_pcs]
+        selected_pcs = candidate_pcs[ranked_indices]
+    else:
+        selected_pcs = np.argsort(final_score)[::-1][:n_pcs]
 
     info = {
         'target_mode': target_mode,
         'noise_mode': noise_mode,
         'noise_max_weight': noise_max_weight,
         'noise_sum_weight': noise_sum_weight,
+        'candidate_pcs': candidate_pcs,
         'final_score': final_score,
         'target_score': target_score,
         'noise_score': noise_score,

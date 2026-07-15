@@ -166,8 +166,51 @@ def test_select_optimal_pcs_returns_info_dict():
     )
     expected_keys = {
         'target_mode', 'noise_mode', 'noise_max_weight', 'noise_sum_weight',
-        'final_score', 'target_score', 'noise_score', 'target_stats', 'noise_stats',
+        'candidate_pcs', 'final_score', 'target_score', 'noise_score',
+        'target_stats', 'noise_stats',
     }
     assert expected_keys.issubset(info.keys())
     assert info['noise_max_weight'] == 0.6
     assert info['noise_sum_weight'] == 0.4
+    assert info['candidate_pcs'] is None
+
+
+def test_select_optimal_pcs_candidate_pcs_restricts_selection():
+    """candidate_pcs should restrict selection to provided indices."""
+    target_stats = {'a': np.array([3.0, 2.0, 1.0, 0.5])}
+    noise_stats = {'b': np.array([0.1, 0.9, 0.1, 0.1])}
+
+    # Without candidates, PC 0 wins (target 3.0, noise 0.1).
+    selected_all, _ = select_optimal_pcs(target_stats, noise_stats, n_pcs=1)
+    assert selected_all[0] == 0
+
+    # With candidates [1, 2, 3], PC 0 is excluded.
+    # PC 2 has target 1.0 and noise 0.1 -> score 10.0
+    # PC 1 has target 2.0 and noise 0.9 -> score 2.22
+    # PC 3 has target 0.5 and noise 0.1 -> score 5.0
+    selected_cand, info = select_optimal_pcs(
+        target_stats,
+        noise_stats,
+        n_pcs=1,
+        candidate_pcs=[1, 2, 3]
+    )
+    assert selected_cand[0] == 2
+    assert np.all(np.isin(selected_cand, [1, 2, 3]))
+
+
+def test_select_optimal_pcs_candidate_pcs_noise_computed_globally():
+    """Noise scores should still be computed over all PCs when candidates restrict selection."""
+    target_stats = {'a': np.array([3.0, 2.0, 1.0])}
+    noise_stats = {'b': np.array([0.1, 0.1, 0.1])}
+
+    selected, info = select_optimal_pcs(
+        target_stats,
+        noise_stats,
+        n_pcs=2,
+        candidate_pcs=[1, 2]
+    )
+
+    # Noise score should be available for all PCs, not just candidates.
+    assert len(info['noise_score']) == 3
+    # Selected PCs must come from candidates.
+    assert set(selected).issubset({1, 2})
