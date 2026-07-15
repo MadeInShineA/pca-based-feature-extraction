@@ -32,11 +32,38 @@ def compute_statistics_anova(pca_i, df_score_tmp, target_col):
     return tmp_stat, p_value
 
 
-def pca_extract(df_score, target, method_pick_pca, fig_plot, fig_dir, bar_color='blue'):
+def pca_extract(df_score, target, method_pick_pca, fig_plot, fig_dir,
+                bar_color='blue', n_pcs=None, alpha=0.05):
     """
-    df_score: PCAスコアのみを含むDataFrame（NaNは既に除外されている想定）
-    target: ターゲット変数のSeries（df_score[target]に相当、NaNは既に除外されている想定）
-    bar_color: プロットのバーの色（デフォルト: 'blue'）
+    Identify PCs associated with the target variable.
+
+    Parameters
+    ----------
+    df_score : pandas.DataFrame
+        DataFrame containing only PCA scores (NaNs are assumed to be removed).
+    target : pandas.Series or array-like
+        Target variable (NaNs are assumed to be removed).
+    method_pick_pca : str
+        Multiple comparison correction method for selecting significant PCs.
+        Used when n_pcs is None.
+    fig_plot : bool
+        Whether to generate and save plots of statistics.
+    fig_dir : str
+        Directory path to save plots. Required if fig_plot=True.
+    bar_color : str, default='blue'
+        Color for the bar plot.
+    n_pcs : int or None, default=None
+        If set, returns the top N PCs by absolute statistic.
+        If None, uses multiple comparison correction.
+    alpha : float, default=0.05
+        Significance level for multiple comparison correction.
+
+    Returns
+    -------
+    ind : numpy.ndarray
+        Indices of selected PCs.
+    statistics : numpy.ndarray
+        Statistics for each PC.
     """
     # targetをSeriesに変換（まだSeriesでない場合）
     if not isinstance(target, pd.Series):
@@ -54,13 +81,8 @@ def pca_extract(df_score, target, method_pick_pca, fig_plot, fig_dir, bar_color=
     # target_nameの取得（プロットのタイトルやファイル名に使用）
     target_name = getattr(target, 'name', 'unknown')
 
-    stat_type = None
-    y_label = None
     # binary（2値）の場合: ttest_ind
     if is_numeric and unique_vals == 2:
-        stat_type = "T-value (t-test)"
-        y_label = "Absolute T-value"
-
         val1, val2 = unique_list
         mask1 = target_data == val1
         mask2 = target_data == val2
@@ -70,9 +92,6 @@ def pca_extract(df_score, target, method_pick_pca, fig_plot, fig_dir, bar_color=
         )
     # 連続値の場合: pearsonr相関
     elif is_numeric and unique_vals > 2:
-        stat_type = "r-value (Pearson correlation)"
-        y_label = "Absolute r-value"
-
         results = Parallel(n_jobs=-1)(
             delayed(stats.pearsonr)(df_score_tmp[pca_i], target_data)
             for pca_i in df_score_tmp.columns
@@ -80,9 +99,6 @@ def pca_extract(df_score, target, method_pick_pca, fig_plot, fig_dir, bar_color=
         statistics, p = zip(*results)
     # カテゴリカルの場合: ANOVA
     else:
-        stat_type = "F-value (ANOVA)"
-        y_label = "Absolute F-value"
-
         df_score_anova = df_score_tmp.copy()
         target_col_name = target_name if target_name != 'unknown' else 'target'
         df_score_anova[target_col_name] = target_data
@@ -99,14 +115,18 @@ def pca_extract(df_score, target, method_pick_pca, fig_plot, fig_dir, bar_color=
         plt.figure()
         plt.bar(range(len(statistics[:show_num])), np.abs(statistics[:show_num]), color=bar_color)
         plt.xticks(range(len(statistics[:show_num])), range(1, len(statistics[:show_num]) + 1))
-        plt.title(f"Top {show_num} Principal Components:\n {stat_type} for '{target_name}'", fontsize=14)
-        plt.xlabel("Principal Component", fontsize=12)
-        plt.ylabel(y_label, fontsize=12)
+        plt.title(target_name)
         plt.savefig(fig_dir + target_name + '.png')
         plt.savefig(fig_dir + target_name + '.svg')
 
-    h = smt.multipletests(p, method=method_pick_pca)[0]
-    ind = np.where(h)[0]
+    statistics = np.asarray(statistics)
+    if n_pcs is not None:
+        # Top-N by absolute statistic
+        ind = np.argsort(np.abs(statistics))[::-1][:int(n_pcs)]
+    else:
+        # P-value based selection
+        h = smt.multipletests(p, method=method_pick_pca, alpha=alpha)[0]
+        ind = np.where(h)[0]
     print(f'{target_name} related pcs are {ind}')
     return ind, statistics
 
@@ -155,3 +175,104 @@ def check_p_value(coeff, ind, serch_num):
     con_num = np.argmin(p_hist_val)
     use_con = removed_indices[:con_num]
     return use_con, con_num
+
+
+def select_optimal_pcs(
+    target_stats,
+    noise_stats=None,
+    n_pcs=3,
+    target_mode='sum',
+    noise_mode='combined',
+    noise_max_weight=0.7,
+    noise_sum_weight=0.3
+):
+    """
+    Select PCs that are strong across target metrics and weak across noise metrics.
+
+    Parameters
+    ----------
+    target_stats : dict
+        Dictionary mapping target names to arrays of statistics, e.g.
+        {'diagnosis': stats_array, 'bdi': stats_array}.
+    noise_stats : dict or None, default=None
+        Dictionary mapping noise/confound names to arrays of statistics, e.g.
+        {'motion': stats_array, 'age': stats_array}.
+    n_pcs : int, default=3
+        Number of PCs to return.
+    target_mode : {'sum', 'min', 'max', 'product'}, default='sum'
+        How to combine target statistics:
+        - 'sum': total absolute target signal
+        - 'min': weakest target signal (requires all targets to be strong)
+        - 'max': strongest target signal
+        - 'product': product of absolute target signals
+    noise_mode : {'max', 'sum', 'combined'}, default='combined'
+        How to combine noise statistics:
+        - 'max': penalize single strongest confound
+        - 'sum': penalize total confound burden
+        - 'combined': weighted combination of max and sum
+    noise_max_weight : float, default=0.7
+        Weight for the max-noise term when noise_mode='combined'.
+    noise_sum_weight : float, default=0.3
+        Weight for the sum-noise term when noise_mode='combined'.
+
+    Returns
+    -------
+    selected_pcs : numpy.ndarray
+        Indices of selected PCs, sorted by final score (best first).
+    info : dict
+        Dictionary containing scores, weights, and raw statistics.
+    """
+    if not target_stats:
+        raise ValueError("target_stats cannot be empty")
+
+    # Target scores
+    target_matrix = np.vstack([
+        np.abs(np.asarray(s)) for s in target_stats.values()
+    ])
+    if target_mode == 'sum':
+        target_score = target_matrix.sum(axis=0)
+    elif target_mode == 'min':
+        target_score = target_matrix.min(axis=0)
+    elif target_mode == 'max':
+        target_score = target_matrix.max(axis=0)
+    elif target_mode == 'product':
+        target_score = target_matrix.prod(axis=0)
+    else:
+        raise ValueError(f"Unknown target_mode: {target_mode}")
+
+    # Noise scores
+    if noise_stats:
+        noise_matrix = np.vstack([
+            np.abs(np.asarray(s)) for s in noise_stats.values()
+        ])
+        max_noise = noise_matrix.max(axis=0)
+        sum_noise = noise_matrix.sum(axis=0)
+        if noise_mode == 'max':
+            noise_score = max_noise
+        elif noise_mode == 'sum':
+            noise_score = sum_noise
+        elif noise_mode == 'combined':
+            noise_score = (noise_max_weight * max_noise
+                           + noise_sum_weight * sum_noise)
+        else:
+            raise ValueError(f"Unknown noise_mode: {noise_mode}")
+    else:
+        noise_score = np.zeros_like(target_score)
+
+    # Final score: high target, low noise
+    epsilon = 1e-10
+    final_score = target_score / (noise_score + epsilon)
+    selected_pcs = np.argsort(final_score)[::-1][:n_pcs]
+
+    info = {
+        'target_mode': target_mode,
+        'noise_mode': noise_mode,
+        'noise_max_weight': noise_max_weight,
+        'noise_sum_weight': noise_sum_weight,
+        'final_score': final_score,
+        'target_score': target_score,
+        'noise_score': noise_score,
+        'target_stats': target_stats,
+        'noise_stats': noise_stats,
+    }
+    return selected_pcs, info

@@ -23,7 +23,8 @@ import os
 
 def select_pca_features(df_X_train, target, method_pick_pca='fdr_bh',
                         method_pick_con='fdr_bh', fig_plot=False,
-                        fig_dir=None, bar_color='blue'):
+                        fig_dir=None, bar_color='blue', n_pcs=None,
+                        alpha=0.05, return_statistics=False):
     """
     Identify connections (features) associated with a target variable using PCA.
 
@@ -54,6 +55,14 @@ def select_pca_features(df_X_train, target, method_pick_pca='fdr_bh',
         Directory path to save plots. Required if fig_plot=True.
     bar_color : str, default='blue'
         Color for the bar plot of statistics.
+    n_pcs : int or None, default=None
+        If set, selects the top N PCs by absolute statistic instead of using
+        multiple comparison correction.
+    alpha : float, default=0.05
+        Significance level for multiple comparison correction (used when
+        n_pcs is None).
+    return_statistics : bool, default=False
+        If True, also returns the raw statistics for each PC.
 
     Returns
     -------
@@ -64,6 +73,8 @@ def select_pca_features(df_X_train, target, method_pick_pca='fdr_bh',
         Principal component indices corresponding to each selected connection.
         Shape: (n_selected_connections,)
         Each element indicates which PC the connection contributes to.
+    statistics : numpy.ndarray, optional
+        Raw statistics for each PC. Only returned if return_statistics=True.
 
     Examples
     --------
@@ -134,12 +145,16 @@ def select_pca_features(df_X_train, target, method_pick_pca='fdr_bh',
         method_pick_pca,
         fig_plot=fig_plot,
         fig_dir=fig_dir,
-        bar_color=bar_color
+        bar_color=bar_color,
+        n_pcs=n_pcs,
+        alpha=alpha
     )
 
     # Extract connections (features) associated with the selected components
     cons, cons_pc = con_extract(coeff_train, select_pc, method_pick_con)
 
+    if return_statistics:
+        return cons, cons_pc, statistics
     return cons, cons_pc
 
 
