@@ -6,23 +6,13 @@ Created on Mon Apr 24 09:27:26 2023
 @author: ayumu
 """
 
-import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-import scipy.io
-import matplotlib as mp
-from sklearn.decomposition import PCA
-import random
 from scipy.stats import ttest_ind
 import statsmodels.stats.multitest as smt
-import statsmodels.api as sm
 import scipy.stats as stats
-import glob
-import os
 from tqdm import tqdm
-from collections import Counter
-import sys
 from joblib import Parallel, delayed
 
 
@@ -101,7 +91,7 @@ def pca_extract(df_score, target, method_pick_pca, fig_plot, fig_dir,
         statistics, p = zip(*results)
 
     if fig_plot:
-        show_num = 20;
+        show_num = 20
         plt.figure()
         plt.bar(range(len(statistics[:show_num])), np.abs(statistics[:show_num]), color=bar_color)
         plt.xticks(range(len(statistics[:show_num])), range(1, len(statistics[:show_num]) + 1))
@@ -143,22 +133,19 @@ def con_extract(coeff, pcs, method):
     cons = np.where(tmp_use_con)[0]
     cons_pc = tmp_use_con_pc[cons]
     con_num_tmp = len(cons)
-    print(con_num_tmp)
+    print(f"Extracted {con_num_tmp} connections")
     return cons, cons_pc
 
 
-def check_p_value(coeff, ind, serch_num):
+def check_p_value(coeff, ind, search_num):
     use_coeff = coeff[:, ind]
     original_indices = np.arange(len(use_coeff))
     p_hist_val = []
-    H = []
     removed_indices = []
-    for i in tqdm(range(serch_num)):
+    for i in tqdm(range(search_num)):
         x = (use_coeff / np.std(use_coeff)) ** 2
         p_values = 1 - stats.chi2.cdf(x, 1)
         hist, bin_edges = np.histogram(p_values, bins=100)
-        p_inf = hist / len(use_coeff)
-        H.append(stats.entropy(p_inf))
         p_hist_val.append(np.var(hist))
         min_index = np.argmin(p_values)
         removed_indices.append(original_indices[min_index])
@@ -176,34 +163,12 @@ def select_optimal_pcs(
     primary_target_pcs_lists=None
 ):
     """
-    Select PCs with high target scores and low noise scores.
-
-    Each input list contains (pc_index, score) tuples for one metric.
-    Target and noise scores for each PC are the sum of absolute scores across
-    the corresponding lists. The final score is target_score / noise_score.
-
-    Parameters
-    ----------
-    target_pcs_lists : list of list of tuple
-        List of (pc_index, score) lists for each target / supportive metric, e.g.
-        [[(1, 4.5), (930, 3.2)], [(1, 3.8), (40, 2.9)]].
-    noise_pcs_lists : list of list of tuple
-        List of (pc_index, score) lists for each noise/confound metric, e.g.
-        [[(2, 3.5), (4, 3.0)], [(10, 2.1), (35, 1.8)]].
-    n_pcs : int, default=3
-        Number of PCs to return.
-    primary_target_pcs_lists : list of list of tuple or None, default=None
-        If provided, selection is restricted to PCs that appear in these lists.
-        These lists still contribute to the target score. Use this when you have
-        a main target (e.g., diagnosis) and want the final PCs to be chosen from
-        its top PCs, while supportive metrics (e.g., BDI) only modify the score.
-
-    Returns
-    -------
-    selected_pcs : numpy.ndarray
-        Indices of selected PCs, sorted by final score (best first).
-    info : dict
-        Dictionary containing scores and the input lists.
+    target_pcs_lists: List of (pc_index, score) lists for each target/supportive metric
+    noise_pcs_lists: List of (pc_index, score) lists for each noise/confound metric
+    n_pcs: Number of PCs to return (default: 3)
+    primary_target_pcs_lists: If provided, restricts selection to PCs in these lists.
+        These lists do NOT contribute to scoring — include primary metrics in both
+        target_pcs_lists and primary_target_pcs_lists.
     """
     if not target_pcs_lists:
         raise ValueError("target_pcs_lists cannot be empty")
@@ -222,11 +187,12 @@ def select_optimal_pcs(
 
     # Determine candidate PCs: restrict to primary targets if provided,
     # otherwise allow any target PC.
-    if primary_target_pcs_lists is not None and primary_target_pcs_lists:
+    if primary_target_pcs_lists:
         candidate_pcs_set = set()
         for pc_list in primary_target_pcs_lists:
             for pc, _ in pc_list:
                 candidate_pcs_set.add(pc)
+        # Include primary PCs in array sizing even if not in target/noise lists
         all_pcs.update(candidate_pcs_set)
     else:
         candidate_pcs_set = all_pcs.copy()
