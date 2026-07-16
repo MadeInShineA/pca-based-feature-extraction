@@ -35,35 +35,14 @@ def compute_statistics_anova(pca_i, df_score_tmp, target_col):
 def pca_extract(df_score, target, method_pick_pca, fig_plot, fig_dir,
                 bar_color='blue', n_pcs=None, alpha=0.05):
     """
-    Identify PCs associated with the target variable.
-
-    Parameters
-    ----------
-    df_score : pandas.DataFrame
-        DataFrame containing only PCA scores (NaNs are assumed to be removed).
-    target : pandas.Series or array-like
-        Target variable (NaNs are assumed to be removed).
-    method_pick_pca : str
-        Multiple comparison correction method for selecting significant PCs.
-        Used when n_pcs is None.
-    fig_plot : bool
-        Whether to generate and save plots of statistics.
-    fig_dir : str
-        Directory path to save plots. Required if fig_plot=True.
-    bar_color : str, default='blue'
-        Color for the bar plot.
-    n_pcs : int or None, default=None
-        If set, returns the top N PCs by absolute statistic.
-        If None, uses multiple comparison correction.
-    alpha : float, default=0.05
-        Significance level for multiple comparison correction.
-
-    Returns
-    -------
-    ind : numpy.ndarray
-        Indices of selected PCs.
-    statistics : numpy.ndarray
-        Statistics for each PC.
+    df_score: PCAスコアのみを含むDataFrame（NaNは既に除外されている想定）
+    target: ターゲット変数のSeries（df_score[target]に相当、NaNは既に除外されている想定）
+    method_pick_pca: 有意なPCを選択するための多重比較補正方法（n_pcsがNoneの場合に使用）
+    fig_plot: 統計量のプロットを生成・保存するかどうか
+    fig_dir: プロットを保存するディレクトリパス（fig_plot=Trueの場合に必要）
+    bar_color: プロットのバーの色（デフォルト: 'blue'）
+    n_pcs: 上位N個のPCを絶対統計量で選択する場合の数（Noneの場合は多重比較補正を使用）
+    alpha: 多重比較補正の有意水準（n_pcsがNoneの場合に使用、デフォルト: 0.05）
     """
     # targetをSeriesに変換（まだSeriesでない場合）
     if not isinstance(target, pd.Series):
@@ -81,8 +60,13 @@ def pca_extract(df_score, target, method_pick_pca, fig_plot, fig_dir,
     # target_nameの取得（プロットのタイトルやファイル名に使用）
     target_name = getattr(target, 'name', 'unknown')
 
+    stat_type = None
+    y_label = None
     # binary（2値）の場合: ttest_ind
     if is_numeric and unique_vals == 2:
+        stat_type = "T-value (t-test)"
+        y_label = "Absolute T-value"
+
         val1, val2 = unique_list
         mask1 = target_data == val1
         mask2 = target_data == val2
@@ -92,6 +76,9 @@ def pca_extract(df_score, target, method_pick_pca, fig_plot, fig_dir,
         )
     # 連続値の場合: pearsonr相関
     elif is_numeric and unique_vals > 2:
+        stat_type = "r-value (Pearson correlation)"
+        y_label = "Absolute r-value"
+
         results = Parallel(n_jobs=-1)(
             delayed(stats.pearsonr)(df_score_tmp[pca_i], target_data)
             for pca_i in df_score_tmp.columns
@@ -99,6 +86,9 @@ def pca_extract(df_score, target, method_pick_pca, fig_plot, fig_dir,
         statistics, p = zip(*results)
     # カテゴリカルの場合: ANOVA
     else:
+        stat_type = "F-value (ANOVA)"
+        y_label = "Absolute F-value"
+
         df_score_anova = df_score_tmp.copy()
         target_col_name = target_name if target_name != 'unknown' else 'target'
         df_score_anova[target_col_name] = target_data
@@ -115,7 +105,9 @@ def pca_extract(df_score, target, method_pick_pca, fig_plot, fig_dir,
         plt.figure()
         plt.bar(range(len(statistics[:show_num])), np.abs(statistics[:show_num]), color=bar_color)
         plt.xticks(range(len(statistics[:show_num])), range(1, len(statistics[:show_num]) + 1))
-        plt.title(target_name)
+        plt.title(f"Top {show_num} Principal Components:\n {stat_type} for '{target_name}'", fontsize=14)
+        plt.xlabel("Principal Component", fontsize=12)
+        plt.ylabel(y_label, fontsize=12)
         plt.savefig(fig_dir + target_name + '.png')
         plt.savefig(fig_dir + target_name + '.svg')
 
