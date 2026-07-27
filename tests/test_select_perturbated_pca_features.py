@@ -114,3 +114,17 @@ def test_invalid_df_type_raises(sample_data):
     _, target = sample_data
     with pytest.raises(TypeError, match="pandas.DataFrame"):
         select_perturbated_pca_features(DOCKER_IMAGE, [[1, 2], [3, 4]], target)
+
+
+def test_n_components_parameter(sample_data):
+    df, target = sample_data
+    n_comp = 10
+    result = select_perturbated_pca_features(
+        DOCKER_IMAGE, df, target, n_components=n_comp
+    )
+    cons, cons_pc = result
+    assert isinstance(cons, np.ndarray)
+    assert isinstance(cons_pc, np.ndarray)
+    assert len(cons) == len(cons_pc)
+    if len(cons_pc) > 0:
+        assert all(pc < n_comp for pc in cons_pc)

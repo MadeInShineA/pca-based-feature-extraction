@@ -147,7 +147,7 @@ def select_pca_features(df_X_train, target, method_pick_pca='fdr_bh',
 def select_perturbated_pca_features(docker_image:str, df_X_train, target, method_pick_pca='fdr_bh',
                         method_pick_con='fdr_bh', fig_plot=False,
                         fig_dir=None, bar_color='blue', n_pcs=None,
-                        alpha=0.05, return_statistics=False):
+                        alpha=0.05, return_statistics=False, n_components=100):
     """
     Identify connections (features) associated with a target variable using fuzzy PCA.
 
@@ -189,6 +189,10 @@ def select_perturbated_pca_features(docker_image:str, df_X_train, target, method
         n_pcs is None).
     return_statistics : bool, default=False
         If True, also returns the raw statistics for each PC.
+    n_components : int, default=100
+        Number of principal components to compute. Limits the PCA to the top
+        n_components components for faster computation. If None or greater than
+        min(n_samples, n_features), computes all components.
 
     Returns
     -------
@@ -262,11 +266,24 @@ def select_perturbated_pca_features(docker_image:str, df_X_train, target, method
             "-v", f"{tmpdir}:/data",
             docker_image,
             "-c",
-            "import numpy as np; from sklearn.decomposition import PCA; "
+            "import time; import numpy as np; from sklearn.decomposition import PCA; "
+            "start = time.time(); "
+            "print('Loading data...', flush=True); "
             "X = np.load('/data/data.npy'); "
-            "pca = PCA().fit(X); "
+            "print(f'Loaded shape: {X.shape}, dtype: {X.dtype}, time: {time.time()-start:.2f}s', flush=True); "
+            f"n_comp = min({n_components}, min(X.shape)); "
+            "print(f'Fitting PCA with {n_comp} components...', flush=True); "
+            "start_fit = time.time(); "
+            "pca = PCA(n_components=n_comp).fit(X); "
+            "print(f'PCA fit complete, time: {time.time()-start_fit:.2f}s', flush=True); "
+            "print('Saving coefficients...', flush=True); "
             "np.save('/data/coeff.npy', pca.components_.T); "
-            "np.save('/data/score.npy', pca.transform(X))"
+            "print('Transforming data...', flush=True); "
+            "start_trans = time.time(); "
+            "scores = pca.transform(X); "
+            "print(f'Transform complete, time: {time.time()-start_trans:.2f}s', flush=True); "
+            "np.save('/data/score.npy', scores); "
+            "print(f'Done! Total time: {time.time()-start:.2f}s', flush=True)"
         ], check=True)
         coeff_train = np.load(os.path.join(tmpdir, "coeff.npy"))
         score = np.load(os.path.join(tmpdir, "score.npy"))
