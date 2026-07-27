@@ -157,6 +157,140 @@ def select_pca_features(df_X_train, target, method_pick_pca='fdr_bh',
         return cons, cons_pc, statistics
     return cons, cons_pc
 
+def select_pca_features_single_precision(df_X_train, target, method_pick_pca='fdr_bh',
+                        method_pick_con='fdr_bh', fig_plot=False,
+                        fig_dir=None, bar_color='blue', n_pcs=None,
+                        alpha=0.05, return_statistics=False):
+    """
+    Identify connections (features) associated with a target variable using float32 PCA.
+
+    This function performs PCA using single precision (float32) arithmetic to test
+    numerical stability. By reducing precision from float64 to float32, it introduces
+    rounding errors that reveal whether results are robust to floating-point imprecision.
+
+    Parameters
+    ----------
+    df_X_train : pandas.DataFrame
+        Feature matrix with shape (n_samples, n_features).
+        Each row represents a sample, each column represents a feature (e.g.,
+        functional connectivity edge).
+    target : pandas.Series or array-like
+        Target variable with shape (n_samples,).
+        Can be binary (0/1), continuous, or categorical.
+        NaN values should be excluded before calling this function.
+    method_pick_pca : str, default='fdr_bh'
+        Multiple comparison correction method for selecting significant PCs.
+        Options: 'fdr_bh' (False Discovery Rate, Benjamini-Hochberg),
+                 'bonferroni', or other methods supported by statsmodels.
+    method_pick_con : str, default='fdr_bh'
+        Multiple comparison correction method for selecting significant connections.
+        Options: 'fdr_bh', 'bonferroni', or 'optimal_sigma'.
+    fig_plot : bool, default=False
+        Whether to generate and save plots of statistics.
+    fig_dir : str or None, default=None
+        Directory path to save plots. Required if fig_plot=True.
+    bar_color : str, default='blue'
+        Color for the bar plot of statistics.
+    n_pcs : int or None, default=None
+        If set, selects the top N PCs by absolute statistic instead of using
+        multiple comparison correction.
+    alpha : float, default=0.05
+        Significance level for multiple comparison correction (used when
+        n_pcs is None).
+    return_statistics : bool, default=False
+        If True, also returns the raw statistics for each PC.
+
+    Returns
+    -------
+    cons : numpy.ndarray
+        Indices of selected connections (features) associated with the target.
+        Shape: (n_selected_connections,)
+    cons_pc : numpy.ndarray
+        Principal component indices corresponding to each selected connection.
+        Shape: (n_selected_connections,)
+        Each element indicates which PC the connection contributes to.
+    statistics : numpy.ndarray, optional
+        Raw statistics for each PC. Only returned if return_statistics=True.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> import numpy as np
+    >>> from pcafeat.select_pca import select_perturbated_pca_features
+    >>>
+    >>> # Prepare data
+    >>> df_X_train = pd.DataFrame(np.random.randn(100, 1000))  # 100 samples, 1000 features
+    >>> target = pd.Series(np.random.randint(0, 2, 100))  # Binary target
+    >>>
+    >>> # Remove NaN values
+    >>> if pd.api.types.is_numeric_dtype(target):
+    ...     use_sub = ~np.isnan(target)
+    ... else:
+    ...     use_sub = ~target.isna()
+    >>> df_X_train_clean = df_X_train[use_sub].reset_index(drop=True)
+    >>> target_clean = target[use_sub].reset_index(drop=True)
+    >>>
+    >>> # Extract features using float32 PCA
+    >>> cons, cons_pc = select_perturbated_pca_features(
+    ...     df_X_train_clean,
+    ...     target_clean,
+    ...     method_pick_pca='fdr_bh',
+    ...     method_pick_con='fdr_bh',
+    ...     fig_plot=True,
+    ...     fig_dir='./output/'
+    ... )
+    >>> print(f"Selected {len(cons)} connections")
+    >>> print(f"Associated with PCs: {np.unique(cons_pc)}")
+    """
+
+    # Validate inputs
+    if not isinstance(df_X_train, pd.DataFrame):
+        raise TypeError("df_X_train must be a pandas.DataFrame")
+
+    if len(df_X_train) != len(target):
+        raise ValueError("df_X_train and target must have the same number of samples")
+
+    if fig_plot and fig_dir is None:
+        raise ValueError("fig_dir must be provided when fig_plot=True")
+
+    if fig_plot and not os.path.isdir(fig_dir):
+        os.makedirs(fig_dir, exist_ok=True)
+
+    # Convert target to Series if needed
+    if not isinstance(target, pd.Series):
+        target = pd.Series(target)
+
+    # Convert input to float32 for single precision PCA
+    X_float32 = df_X_train.values.astype(np.float32)
+
+    # Perform PCA in float32 precision
+    pca = PCA().fit(X_float32)
+    coeff_train = pca.components_.T
+    score = pca.transform(X_float32)
+
+    # Create DataFrame with PCA scores
+    n_components = score.shape[1]
+    pca_id = [f'pca_score{i}' for i in range(1, n_components + 1)]
+    df_score = pd.DataFrame(score, columns=pca_id)
+
+    # Identify principal components significantly associated with the target variable
+    select_pc, statistics = pca_extract(
+        df_score,
+        target,
+        method_pick_pca,
+        fig_plot=fig_plot,
+        fig_dir=fig_dir,
+        bar_color=bar_color,
+        n_pcs=n_pcs,
+        alpha=alpha
+    )
+
+    # Extract connections (features) associated with the selected components
+    cons, cons_pc = con_extract(coeff_train, select_pc, method_pick_con)
+
+    if return_statistics:
+        return cons, cons_pc, statistics
+    return cons, cons_pc
 
 if __name__ == "__main__":
     """
