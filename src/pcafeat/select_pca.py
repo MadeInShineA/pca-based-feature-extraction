@@ -149,14 +149,17 @@ def select_perturbated_pca_features(docker_image:str, df_X_train, target, method
                         fig_dir=None, bar_color='blue', n_pcs=None,
                         alpha=0.05, return_statistics=False):
     """
-    Identify connections (features) associated with a target variable using PCA.
+    Identify connections (features) associated with a target variable using fuzzy PCA.
 
-    This function performs PCA on the input feature matrix, identifies principal
-    components (PCs) significantly associated with the target variable, and extracts
-    the connections (features) that contribute to those PCs.
+    This function performs PCA inside a Docker container using the verificarlo/fuzzy
+    image, identifies principal components (PCs) significantly associated with the
+    target variable, and extracts the connections (features) that contribute to those PCs.
 
     Parameters
     ----------
+    docker_image : str
+        Docker image name for the fuzzy PCA container
+        (e.g., 'verificarlo/fuzzy:v2.0.0-lapack-python3.8.5-numpy-scipy-sklearn').
     df_X_train : pandas.DataFrame
         Feature matrix with shape (n_samples, n_features).
         Each row represents a sample, each column represents a feature (e.g.,
@@ -203,7 +206,7 @@ def select_perturbated_pca_features(docker_image:str, df_X_train, target, method
     --------
     >>> import pandas as pd
     >>> import numpy as np
-    >>> from pcafeat.select_pca import select_pca_features
+    >>> from pcafeat.select_pca import select_perturbated_pca_features
     >>>
     >>> # Prepare data
     >>> df_X_train = pd.DataFrame(np.random.randn(100, 1000))  # 100 samples, 1000 features
@@ -217,8 +220,10 @@ def select_perturbated_pca_features(docker_image:str, df_X_train, target, method
     >>> df_X_train_clean = df_X_train[use_sub].reset_index(drop=True)
     >>> target_clean = target[use_sub].reset_index(drop=True)
     >>>
-    >>> # Extract features
-    >>> cons, cons_pc = select_pca_features(
+    >>> # Extract features using fuzzy PCA
+    >>> docker_image = 'verificarlo/fuzzy:v2.0.0-lapack-python3.8.5-numpy-scipy-sklearn'
+    >>> cons, cons_pc = select_perturbated_pca_features(
+    ...     docker_image,
     ...     df_X_train_clean,
     ...     target_clean,
     ...     method_pick_pca='fdr_bh',

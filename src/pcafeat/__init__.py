@@ -1,4 +1,7 @@
-from pcafeat.select_pca import select_pca_features
+from pcafeat.select_pca import (
+    select_pca_features,
+    select_perturbated_pca_features,
+)
 from pcafeat.select_ttest import select_ttest_features
 from pcafeat.pca_feature_select import pca_extract, con_extract
 
@@ -6,7 +9,13 @@ __version__ = "1.1.0"
 
 __all__ = [
     "select_pca_features",
+<<<<<<< Updated upstream
     "select_ttest_features",
     "pca_extract",
     "con_extract",
+=======
+    "select_perturbated_pca_features",
+    "calculate_features",
+    "calculate_metrics",
+>>>>>>> Stashed changes
 ]
