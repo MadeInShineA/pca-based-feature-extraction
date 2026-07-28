@@ -9,13 +9,10 @@ __version__ = "1.1.0"
 
 __all__ = [
     "select_pca_features",
-<<<<<<< Updated upstream
     "select_ttest_features",
     "pca_extract",
     "con_extract",
-=======
     "select_perturbated_pca_features",
     "calculate_features",
     "calculate_metrics",
->>>>>>> Stashed changes
 ]
